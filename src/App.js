@@ -1,50 +1,95 @@
-import React, { useState } from 'react';
-import TodoList from './components/TodoList';
-import TodoForm from './components/TodoForm';
+import React, { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { addList, deleteList, addTask, deleteTask, editTask, setTasks, setLists } from './todoSlice';
+import List from './List';
+import Search from './Search';
 import './App.css';
 
 const App = () => {
-  const [todos, setTodos] = useState([]);
-  const [editingTodo, setEditingTodo] = useState(null);
+  const dispatch = useDispatch();
+  const lists = useSelector(state => state.todos.lists);
+  const tasks = useSelector(state => state.todos.tasks);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const addTodo = (text) => {
-    const newTodo = {
-      id: Date.now(),
-      text,
-      completed: false,
-    };
-    setTodos([newTodo, ...todos]);
+  useEffect(() => {
+    const savedLists = JSON.parse(localStorage.getItem('lists'));
+    const savedTasks = JSON.parse(localStorage.getItem('tasks'));
+
+    if (savedLists) {
+      dispatch(setLists(savedLists));
+    }
+
+    if (savedTasks) {
+      dispatch(setTasks(savedTasks));
+    }
+  }, [dispatch]);
+
+  useEffect(() => {
+    localStorage.setItem('lists', JSON.stringify(lists));
+  }, [lists]);
+
+  useEffect(() => {
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+  }, [tasks]);
+
+  const handleAddList = (title) => {
+    dispatch(addList(title));
   };
 
-  const toggleComplete = (id) => {
-    setTodos(
-      todos.map((todo) =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo
-      )
-    );
+  const handleDeleteList = (listId) => {
+    dispatch(deleteList(listId));
   };
 
-  const deleteTodo = (id) => {
-    setTodos(todos.filter((todo) => todo.id !== id));
+  const handleAddTask = (listId, task) => {
+    dispatch(addTask({ listId, task }));
   };
 
-  const editTodo = (id) => {
-    const todo = todos.find((todo) => todo.id === id);
-    setEditingTodo(todo);
+  const handleDeleteTask = (listId, taskId) => {
+    dispatch(deleteTask({ listId, taskId }));
   };
 
-  const updateTodo = (id, newText) => {
-    setTodos(
-      todos.map((todo) => (todo.id === id ? { ...todo, text: newText } : todo))
-    );
-    setEditingTodo(null);
+  const handleEditTask = (listId, taskId, newTask) => {
+    dispatch(editTask({ listId, taskId, newTask }));
+  };
+
+  const handleSearch = (term) => {
+    setSearchTerm(term);
+  };
+
+  const filteredTasks = (tasks, term) => {
+    if (!term) return tasks;
+    return tasks.filter(task => task.title.toLowerCase().includes(term.toLowerCase()));
   };
 
   return (
     <div className="app">
-      <h1>ToDo лист</h1>
-      <TodoForm addTodo={addTodo} editingTodo={editingTodo} updateTodo={updateTodo} />
-      <TodoList todos={todos} toggleComplete={toggleComplete} deleteTodo={deleteTodo} editTodo={editTodo} />
+      <h1>ToDo List</h1>
+      <input
+        type="text"
+        className="add-list-input"
+        placeholder="Создайте лист через enter"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            handleAddList(e.target.value);
+            e.target.value = '';
+          }
+        }}
+      />
+      <Search onSearch={handleSearch} />
+      <div className="lists">
+        {lists.map((list) => (
+          <div key={list.id} className="list-container">
+            <List
+              list={list}
+              tasks={filteredTasks(tasks[list.id] || [], searchTerm)}
+              onAddTask={handleAddTask}
+              onDeleteTask={handleDeleteTask}
+              onEditTask={handleEditTask}
+              onDeleteList={handleDeleteList}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
